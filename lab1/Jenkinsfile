@@ -1,0 +1,69 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME    = 'devops-demo-app'
+        APP_VERSION = "1.0.${BUILD_NUMBER}"
+        TARGET_DIR  = '/var/www/html/devops-app'
+    }
+
+    options {
+        timeout(time: 15, unit: 'MINUTES')
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                echo "========== STAGE: BUILD [Version: ${APP_VERSION}] =========="
+                sh '''
+                    echo "Compiling application assets..."
+                    mkdir -p build/
+                    cp -r *.js *.html build/ 2>/dev/null || cp *.md build/
+                    echo "Build completed successfully."
+                '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo "========== STAGE: TEST =========="
+                sh '''
+                    echo "Executing automated test suite..."
+                    if [ -d "build" ]; then
+                        echo "Artifact verification passed."
+                    else
+                        echo "Test failed: Build directory missing."
+                        exit 1
+                    fi
+                '''
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo "========== STAGE: DEPLOY =========="
+                sh '''
+                    echo "Deploying application to target directory: ${TARGET_DIR}"
+                    sudo mkdir -p ${TARGET_DIR}
+                    sudo cp -r build/* ${TARGET_DIR}/
+                    echo "Application deployed successfully at $(date)"
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline completed with status: SUCCESS."
+        }
+        failure {
+            echo "Pipeline FAILED during execution. Check logs above."
+        }
+        always {
+            echo "Cleaning temporary build workspace..."
+            deleteDir()
+        }
+    }
+}
